@@ -60,7 +60,6 @@ Create a BMP580 object:
 BMP580 bmp;
 Initialize the sensor in setup():
 
-
 if (!bmp.begin()) {
   Serial.println("BMP580 initialization failed!");
   while (1);
