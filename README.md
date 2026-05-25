@@ -1,67 +1,53 @@
-# BMP580 Arduino Library
+# BMP580 Arduino Library (Voltino Labs Edition)
 
 ## Description
-This Arduino library provides basic functionality for the Bosch BMP580 sensor. 
-It allows you to read pressure, temperature, and calculate altitude. 
+This highly optimized Arduino library provides comprehensive functionality for the Bosch BMP580 barometric pressure and temperature sensor. It is engineered to be exceptionally memory-efficient for 8-bit architectures like the Arduino Uno, while delivering maximum performance on modern 32-bit microcontrollers such as the ESP32 and RP2350.
+
 **Note:** This library supports **only I2C communication**.
 
-Default settings used by the library:
-- Oversampling: 4x (pressure & temperature)
-- Output Data Rate (ODR): 240 Hz
-- Power Mode: NORMAL
+### Premium Optimization Features:
+- **Smart I2C Caching:** Eliminates redundant I2C bus transactions. Reading temperature and pressure simultaneously fetches data in a single burst read and caches it according to the selected ODR.
+- **Overflow-Safe Timing:** Uses specialized unsigned subtraction math to prevent the 71-minute `micros()` overflow glitch from locking up or corrupting data tracking.
+- **Automatic I2C Address Fallback:** Automatically probes the primary address (`0x46`), and seamlessly switches to the secondary address (`0x47`) if the sensor is detected there instead.
+- **Hardware IIR Filtering:** Configurable internal Infinite Impulse Response (IIR) filter to suppress high-frequency noise (e.g., drone propeller wind) directly inside the sensor hardware.
+- **Explicit I2C Clock Control:** Supports tailoring the I2C speed from standard 100 kHz up to 1 MHz (Fast Mode Plus) for low-latency loops.
 
 ---
 
-## Features
-- Read temperature (°C)
-- Read pressure (Pa or hPa)
-- Calculate altitude from pressure (m)
-- Set oversampling for temperature and pressure
-- Set output data rate (ODR)
-- Set power mode (STANDBY, NORMAL, FORCED, CONTINUOUS)
+## Default Settings (Upon calling `begin()`)
+- **I2C Clock Speed:** 100 kHz
+- **Output Data Rate (ODR):** 240 Hz
+- **Oversampling (OSR):** 4x (for both Pressure & Temperature)
+- **Power Mode:** NORMAL
+- **Internal IIR Filter:** OFF (0)
 
 ---
 
-## Supported Settings
-
-### Oversampling (OSR)
-BMP580_OSR_x1, BMP580_OSR_x2, BMP580_OSR_x4, BMP580_OSR_x8,
-BMP580_OSR_x16, BMP580_OSR_x32, BMP580_OSR_x64, BMP580_OSR_x128
-
-shell
-Zkopírovat kód
-
-### Output Data Rate (ODR)
-BMP580_ODR_240Hz, BMP580_ODR_218p5Hz, BMP580_ODR_199p1Hz, BMP580_ODR_179p2Hz,
-BMP580_ODR_160Hz, BMP580_ODR_149p3Hz, BMP580_ODR_140Hz, BMP580_ODR_129p9Hz,
-BMP580_ODR_120Hz, BMP580_ODR_110p2Hz, BMP580_ODR_100p3Hz, BMP580_ODR_89p6Hz,
-BMP580_ODR_80Hz, BMP580_ODR_70Hz, BMP580_ODR_60Hz, BMP580_ODR_50p1Hz,
-BMP580_ODR_45Hz, BMP580_ODR_40Hz, BMP580_ODR_35Hz, BMP580_ODR_30Hz,
-BMP580_ODR_25Hz, BMP580_ODR_20Hz, BMP580_ODR_15Hz, BMP580_ODR_10Hz,
-BMP580_ODR_5Hz, BMP580_ODR_4Hz, BMP580_ODR_3Hz, BMP580_ODR_2Hz,
-BMP580_ODR_1Hz, BMP580_ODR_0p5Hz, BMP580_ODR_0p25Hz, BMP580_ODR_0p125Hz
-
-
-### Power Modes
-BMP580_MODE_STANDBY
-BMP580_MODE_NORMAL
-BMP580_MODE_FORCED
-BMP580_MODE_CONTINUOUS
+## Features & API Reference
+- `bool begin(uint8_t addr = BMP580_PRIMARY_I2C_ADDR)` - Initializes the sensor, applies defaults, and performs automatic dual-address verification.
+- `void setI2CSpeed(uint32_t speed)` - Changes I2C clock frequency (e.g., `100000`, `400000`, `1000000`).
+- `void setOversampling(BMP580_OSR osr_p, BMP580_OSR osr_t)` - Set oversampling configuration.
+- `void setODR(BMP580_ODR odr)` - Dynamically sets output data rate and updates cache timeouts seamlessly.
+- `void setPowerMode(BMP580_Mode mode)` - Set power state.
+- `void setIIRFilter(BMP580_IIR iir_p, BMP580_IIR iir_t)` - Configures internal hardware low-pass filtering.
+- `float readTemperature()` - Returns cached or freshly sampled temperature (°C).
+- `float readPressure()` - Returns cached or freshly sampled pressure (Pa).
+- `float readAltitude(float seaLevelPressure = 101325.0f)` - Calculates precise altitude (m) based on current pressure.
 
 ---
 
-## Installation
-1. Copy the `BMP580` folder into your Arduino `libraries` directory.
-2. Include the library in your sketch:
+## Supported Configurations
 
-#include <BMP580.h>
-Create a BMP580 object:
+### Hardware IIR Filter Coefficients (`BMP580_IIR`)
+`BMP580_IIR_OFF`, `BMP580_IIR_1`, `BMP580_IIR_3`, `BMP580_IIR_7`, `BMP580_IIR_15`, `BMP580_IIR_31`, `BMP580_IIR_63`, `BMP580_IIR_127`
 
-BMP580 bmp;
-Initialize the sensor in setup():
+*Note: Increasing the IIR coefficient smooths out noise but introduces measurement latency (lowers data responsiveness).*
 
+### Oversampling Rates (`BMP580_OSR`)
+`BMP580_OSR_x1`, `BMP580_OSR_x2`, `BMP580_OSR_x4`, `BMP580_OSR_x8`, `BMP580_OSR_x16`, `BMP580_OSR_x32`, `BMP580_OSR_x64`, `BMP580_OSR_x128`
 
-if (!bmp.begin()) {
-  Serial.println("BMP580 initialization failed!");
-  while (1);
-}
+### Output Data Rates (`BMP580_ODR`)
+From `BMP580_ODR_240Hz` down to `BMP580_ODR_0p125Hz` (consult `BMP580.h` for full enum list).
+
+---
+License: MIT

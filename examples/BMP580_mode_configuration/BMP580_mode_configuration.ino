@@ -1,26 +1,15 @@
 /*
-  BMP580 Advanced Example
+  BMP580 Advanced Configuration Example - Voltino Labs Edition
 
-  This example demonstrates how to read data from the BMP580 sensor
-  and how to configure the sensor's settings:
+  This example demonstrates how to configure advanced features of the BMP580,
+  specifically boosting the I2C communication speed and configuring the internal 
+  hardware Infinite Impulse Response (IIR) filter.
 
-  Oversampling (OSR) options:
-    BMP580_OSR_x1, BMP580_OSR_x2, BMP580_OSR_x4, BMP580_OSR_x8,
-    BMP580_OSR_x16, BMP580_OSR_x32, BMP580_OSR_x64, BMP580_OSR_x128
-
-  Output Data Rate (ODR) options (Hz):
-    BMP580_ODR_240Hz, BMP580_ODR_218p5Hz, BMP580_ODR_199p1Hz, BMP580_ODR_179p2Hz,
-    BMP580_ODR_160Hz, BMP580_ODR_149p3Hz, BMP580_ODR_140Hz, BMP580_ODR_129p9Hz,
-    BMP580_ODR_120Hz, BMP580_ODR_110p2Hz, BMP580_ODR_100p3Hz, BMP580_ODR_89p6Hz,
-    BMP580_ODR_80Hz, BMP580_ODR_70Hz, BMP580_ODR_60Hz, BMP580_ODR_50p1Hz,
-    BMP580_ODR_45Hz, BMP580_ODR_40Hz, BMP580_ODR_35Hz, BMP580_ODR_30Hz,
-    BMP580_ODR_25Hz, BMP580_ODR_20Hz, BMP580_ODR_15Hz, BMP580_ODR_10Hz,
-    BMP580_ODR_5Hz, BMP580_ODR_4Hz, BMP580_ODR_3Hz, BMP580_ODR_2Hz,
-    BMP580_ODR_1Hz, BMP580_ODR_0p5Hz, BMP580_ODR_0p25Hz, BMP580_ODR_0p125Hz
-
-  Power modes:
-    BMP580_MODE_STANDBY, BMP580_MODE_NORMAL,
-    BMP580_MODE_FORCED, BMP580_MODE_CONTINUOUS
+  IIR Filter impact notice:
+    - Activating the internal hardware filter smooths out rapid pressure spikes 
+      (such as wind gusts from drone propellers or atmospheric noise).
+    - It does NOT alter the physical ODR frequency, but it introduces step latency 
+      to the measurements (higher coefficients = smoother lines but slower response).
 */
 
 #include <Wire.h>
@@ -30,47 +19,52 @@ BMP580 bmp;
 
 void setup() {
   Serial.begin(115200);
-  Wire.begin();
 
-  if (!bmp.begin(0x46)) {
-    Serial.println("Error: BMP580 not detected!");
+  // Initialize the sensor with explicit address if desired, or leave empty for auto-probing
+  if (!bmp.begin(BMP580_PRIMARY_I2C_ADDR)) {
+    Serial.println("Error: BMP580 sensor could not be initialized!");
     while (1);
   }
 
-  Serial.println("BMP580 initialized successfully.");
+  Serial.println("BMP580 base system online.");
 
-  // Example: set custom oversampling (8x for pressure, 4x for temperature)
-  bmp.setOversampling(BMP580_OSR_x8, BMP580_OSR_x4);
+  // 1. Boost I2C Bus Speed to Fast Mode (400 kHz)
+  // Modern MCUs like ESP32 or RP2350 can go up to 1000000 (1 MHz), while AVR Uno safely supports 400000.
+  bmp.setI2CSpeed(400000);
+  Serial.println("I2C speed boosted to 400 kHz (Fast Mode).");
 
-  // Example: set Output Data Rate to 100 Hz
-  bmp.setODR(BMP580_ODR_100p3Hz);
+  // 2. Adjust Oversampling Configuration (e.g., 8x for pressure to get cleaner data, 2x for temperature)
+  bmp.setOversampling(BMP580_OSR_x8, BMP580_OSR_x2);
 
-  // Example: set power mode to CONTINUOUS for constant measurement
+  // 3. Set Output Data Rate (ODR) to 50 Hz 
+  // Our internal smart cache timeout will automatically and safely adapt to this new rate.
+  bmp.setODR(BMP580_ODR_50p1Hz);
+
+  // 4. Configure Internal Hardware IIR Filter
+  // Let's set both pressure and temperature hardware filtering to a coefficient of 15.
+  // This heavily filters ambient environmental noise natively inside the Bosch silicon.
+  bmp.setIIRFilter(BMP580_IIR_15, BMP580_IIR_15);
+  Serial.println("Internal hardware IIR filter activated (Coefficient: 15).");
+
+  // 5. Enforce Continuous power mode for stable background updates
   bmp.setPowerMode(BMP580_MODE_CONTINUOUS);
 
-  Serial.println("Custom settings applied:");
-  Serial.println("- Oversampling: P=8x, T=4x");
-  Serial.println("- Output Data Rate: 100 Hz");
-  Serial.println("- Power Mode: CONTINUOUS");
+  Serial.println("Advanced configurations successfully applied.");
+  delay(100); 
 }
 
 void loop() {
-  float temperature = bmp.readTemperature();
-  float pressure = bmp.readPressure();
-  float altitude = bmp.readAltitude(101325.0);
+  // Data reading remains exactly the same, but the internal management is completely transformed.
+  // Readings here are refreshed strictly at 50Hz, fully guarded against micros() overflow conditions.
+  float temp = bmp.readTemperature();
+  float press = bmp.readPressure();
 
-  Serial.print("Temperature: ");
-  Serial.print(temperature, 2);
+  Serial.print("Filtered Pressure: ");
+  Serial.print(press / 100.0f, 2);
+  Serial.print(" hPa | Temp: ");
+  Serial.print(temp, 2);
   Serial.println(" °C");
 
-  Serial.print("Pressure: ");
-  Serial.print(pressure / 100.0, 2);
-  Serial.println(" hPa");
-
-  Serial.print("Altitude: ");
-  Serial.print(altitude, 2);
-  Serial.println(" m");
-
-  Serial.println("---");
-  delay(500);
+  // Loop runs at 100Hz, but I2C burst reads only happen at 50Hz due to automated cache timing!
+  delay(10); 
 }
