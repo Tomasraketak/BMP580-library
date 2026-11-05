@@ -46,16 +46,19 @@ void setup() {
   bmp.setIIRFilter(BMP580_IIR_15, BMP580_IIR_15);
   Serial.println("Internal hardware IIR filter activated (Coefficient: 15).");
 
-  // 5. Enforce Continuous power mode for stable background updates
-  bmp.setPowerMode(BMP580_MODE_CONTINUOUS);
+  // 5. Verify that the OSR/ODR combination is valid (datasheet table 7).
+  // An invalid combination makes the sensor silently fall back to OSR x2.
+  if (!bmp.isConfigValid()) {
+    Serial.println("Warning: OSR/ODR combination is not valid - sensor uses fallback OSR!");
+  }
 
   Serial.println("Advanced configurations successfully applied.");
   delay(100); 
 }
 
 void loop() {
-  // Data reading remains exactly the same, but the internal management is completely transformed.
-  // Readings here are refreshed strictly at 50Hz, fully guarded against micros() overflow conditions.
+  // Data reading remains exactly the same.
+  // Readings here are refreshed strictly at 50Hz (NORMAL mode), fully guarded against micros() overflow conditions.
   float temp = bmp.readTemperature();
   float press = bmp.readPressure();
 

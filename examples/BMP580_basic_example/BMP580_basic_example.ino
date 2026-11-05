@@ -7,8 +7,8 @@
 
   Default settings applied automatically:
     - I2C Clock Speed: 100 kHz
-    - Oversampling: 4x (Pressure & Temperature)
-    - Output Data Rate (ODR): 240 Hz
+    - Oversampling: 4x Pressure, 1x Temperature (Bosch "standard resolution")
+    - Output Data Rate (ODR): 199.1 Hz
     - Power Mode: NORMAL
     - Internal IIR Filter: OFF (0)
 */
@@ -35,7 +35,7 @@ void setup() {
 
 void loop() {
   // Read sensor values. 
-  // The library checks the data age against the 240Hz timeout (4.16ms).
+  // The library checks the data age against the ODR period (~5 ms at 199.1 Hz).
   // The first call triggers a hardware I2C burst read, while the second call 
   // instantly serves data from the ultra-fast local RAM cache.
   float temperature = bmp.readTemperature();       // Temperature in °C
