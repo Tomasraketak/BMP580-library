@@ -1,10 +1,18 @@
-# BMP580 Arduino Library (Voltino Labs Edition)
+# Voltino BMP580 – Arduino library for Bosch BMP580
 
 Optimized Arduino library for the **Bosch BMP580** barometric pressure and temperature sensor,
 written according to the datasheet **BST-BMP580-DS004**. Memory-efficient enough for 8-bit AVR
 (Arduino Uno) and fast on 32-bit MCUs (ESP32, RP2040/RP2350, STM32, ...).
 
 **Note:** This library supports **I2C communication only**.
+
+## Installation
+Arduino IDE → *Library Manager* → search for **Voltino BMP580**, or download the ZIP and use
+*Sketch → Include Library → Add .ZIP Library*.
+
+```cpp
+#include <BMP580.h>
+```
 
 ## Features
 - **Smart I2C caching** – temperature and pressure are read in a single burst (required by the
