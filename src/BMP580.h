@@ -190,7 +190,9 @@ class BMP580 {
 
   // Pressure out-of-range window: triggers when |p - referencePa| > windowPa
   // for 'count' consecutive samples. referencePa: 0..131071 Pa, windowPa: 0..255 Pa.
-  void setPressureOutOfRange(uint32_t referencePa, uint8_t windowPa, BMP580_OORCount count = BMP580_OOR_COUNT_1);
+  // useFilteredPressure = true -> compare the IIR-filtered pressure (DSP_CONFIG.oor_sel_iir_p)
+  void setPressureOutOfRange(uint32_t referencePa, uint8_t windowPa, BMP580_OORCount count = BMP580_OOR_COUNT_1,
+                             bool useFilteredPressure = false);
 
   // --- FIFO --------------------------------------------------------------------
   // decimation: store only every 2^decimation sample (0..7)

@@ -29,6 +29,7 @@
 #define DSP_CONFIG_FIFO_T     0x10
 #define DSP_CONFIG_SHDW_P     0x20
 #define DSP_CONFIG_FIFO_P     0x40
+#define DSP_CONFIG_OOR_P      0x80
 #define STATUS_NVM_RDY        0x02
 #define STATUS_NVM_ERR        0x04
 #define STATUS_NVM_CMD_ERR    0x08
@@ -138,10 +139,16 @@ void BMP580::setOversampling(BMP580_OSR osr_p, BMP580_OSR osr_t, bool pressureEn
 
 void BMP580::setODR(BMP580_ODR odr) {
   _odr = odr & 0x1F;
-  // Preserve deep_dis and pwr_mode
-  uint8_t reg = readRegister(BMP580_ODR_CONFIG);
-  reg = (reg & (ODR_CONFIG_DEEP_DIS | ODR_CONFIG_MODE_MASK)) | (_odr << 2);
-  writeRegister(BMP580_ODR_CONFIG, reg);
+  if (!_deepDis) {
+    // The device may currently be in DEEP STANDBY - leave it first
+    // (same approach as the Bosch Sensor API)
+    restoreMode(enterStandby());
+  } else {
+    // Preserve deep_dis and pwr_mode
+    uint8_t reg = readRegister(BMP580_ODR_CONFIG);
+    reg = (reg & (ODR_CONFIG_DEEP_DIS | ODR_CONFIG_MODE_MASK)) | (_odr << 2);
+    writeRegister(BMP580_ODR_CONFIG, reg);
+  }
   _cacheValid = false;
   updateTimeoutUs();
 }
@@ -382,9 +389,13 @@ bool BMP580::dataReady() {
   return (getInterruptStatus() & BMP580_INT_DRDY) != 0;
 }
 
-void BMP580::setPressureOutOfRange(uint32_t referencePa, uint8_t windowPa, BMP580_OORCount count) {
-  // cnt_lim cannot be written during a conversion -> use STANDBY
+void BMP580::setPressureOutOfRange(uint32_t referencePa, uint8_t windowPa, BMP580_OORCount count,
+                                   bool useFilteredPressure) {
+  // cnt_lim and DSP_CONFIG cannot be written during a conversion -> use STANDBY
   uint8_t prev = enterStandby();
+  uint8_t dsp = readRegister(BMP580_DSP_CONFIG) & ~DSP_CONFIG_OOR_P;
+  if (useFilteredPressure) dsp |= DSP_CONFIG_OOR_P;
+  writeRegister(BMP580_DSP_CONFIG, dsp);
   writeRegister(BMP580_OOR_THR_P_LSB, referencePa & 0xFF);
   writeRegister(BMP580_OOR_THR_P_MSB, (referencePa >> 8) & 0xFF);
   writeRegister(BMP580_OOR_RANGE, windowPa);
@@ -435,6 +446,12 @@ uint8_t BMP580::readFIFO(float *pressure, float *temperature, uint8_t maxFrames)
     for (uint8_t i = 0; i < n; i++) {
       const uint8_t *f = &buffer[i * frameSize];
       uint8_t idx = done + i;
+      // FIFO empty: every byte reads 0x7F (datasheet 4.6.3)
+      bool empty = true;
+      for (uint8_t b = 0; b < frameSize; b++) {
+        if (f[b] != 0x7F) { empty = false; break; }
+      }
+      if (empty) return idx;
       switch (_fifoFrame) {
         case BMP580_FIFO_PRESS_AND_TEMP:
           if (temperature) temperature[idx] = convertTemperature(f);
